@@ -29,6 +29,29 @@ Databricks App "nao"  (managed Node 22 + Python 3.11 runtime)
   npm package; `npm install` vendors the binary into `node_modules/.bin` and
   start.sh runs the backend with it.
 
+## One-time setup gotchas (learned in practice)
+
+- **Lakebase `public` schema grant.** Postgres 15+ doesn't grant `CREATE` on
+  `public` by default, so nao's first migration fails with `permission denied for
+  schema public`. As a Lakebase admin, grant the app SP (its Postgres role name is
+  the SP **client id**):
+  ```sql
+  GRANT CREATE, USAGE ON SCHEMA public TO "<app-sp-client-id>";
+  ```
+  (Connect with `psql` using a token from `databricks database generate-database-credential`.)
+- **Stable `BETTER_AUTH_SECRET`.** Must be a fixed secret, not ephemeral — Better
+  Auth encrypts its JWKS with it and stores them in Lakebase. A changing secret
+  causes `Failed to decrypt private key` on every request (login loop). Create one:
+  ```bash
+  databricks secrets create-scope nao
+  databricks secrets put-secret nao better_auth_secret --string-value "$(openssl rand -hex 32)"
+  ```
+  and attach it as the `better-auth-secret` app resource.
+- **No separate login (SSO passthrough).** With `NAO_SSO_PASSTHROUGH=true`, nao
+  trusts Databricks Apps' `X-Forwarded-Email` and auto-creates a session, so the
+  Databricks SSO is the only login. Leave it off if the app isn't behind an
+  authenticating proxy.
+
 ## Prerequisites
 
 - `databricks` CLI authenticated to the target workspace (e.g. `databricks auth login --profile logfood`).
