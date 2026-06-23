@@ -24,13 +24,16 @@ cd "$APP_ROOT"
 export PATH="$APP_ROOT/node_modules/.bin:$PATH"
 export NODE_ENV="${NODE_ENV:-production}"
 export HOME="${HOME:-/home/app}"
-# Resolve an ABSOLUTE interpreter path — `command -v` can return a relative
-# venv path (.venv/bin/python) that breaks once we cd elsewhere (e.g. the sync
-# runs from /tmp/nao-project). sys.executable is always absolute.
-PY="$(python -c 'import sys; print(sys.executable)' 2>/dev/null \
-   || python3 -c 'import sys; print(sys.executable)' 2>/dev/null \
+# Resolve an ABSOLUTE interpreter path. Apps launches the venv python via a
+# relative PATH entry, so even sys.executable can be relative (.venv/bin/python)
+# and breaks once we cd elsewhere (e.g. the sync runs from /tmp/nao-project).
+# os.path.abspath resolves it against the current dir ($APP_ROOT).
+PY="$(python -c 'import os,sys; print(os.path.abspath(sys.executable))' 2>/dev/null \
+   || python3 -c 'import os,sys; print(os.path.abspath(sys.executable))' 2>/dev/null \
    || command -v python3 || command -v python)"
+case "$PY" in /*) ;; *) PY="$APP_ROOT/$PY" ;; esac  # belt-and-suspenders
 export NAO_PYTHON="$PY"  # used by the backend's data-sync trigger / scheduled job
+echo "Interpreter: $PY"
 
 # --- Web port: Apps assigns it dynamically; nao reads SERVER_PORT / --port -----
 PORT="${DATABRICKS_APP_PORT:-8000}"
