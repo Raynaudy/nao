@@ -33,17 +33,27 @@ env:
   - name: NAO_CONTEXT_SOURCE
     value: "local"
 
-  # ---- Metadata DB: Lakebase (Postgres). Attaching the `lakebase` database
-  #      resource auto-injects PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD;
-  #      start.sh assembles DB_URI from them. DB_SSL forces TLS (Lakebase needs it).
+  # ---- Metadata DB: Lakebase (Postgres). The `lakebase` resource injects
+  #      PGHOST/PGPORT/PGDATABASE; start.sh assembles DB_URI. We authenticate as a
+  #      dedicated NATIVE Postgres role with a STABLE password (secret) instead of
+  #      a ~1h OAuth token, so the app DB doesn't fail after an hour.
   - name: DB_SSL
     value: "true"
+  - name: NAO_PG_USER
+    value: "nao_app"
+  - name: NAO_PG_PASSWORD
+    valueFrom: "pg-password"
 
   # ---- Analytics data: Databricks SQL warehouse (read by nao's connector).
   #      The app service principal authenticates via OAuth; nao's Databricks
   #      connection config is generated from these by deploy/databricks/render-config.
   - name: DATABRICKS_WAREHOUSE_ID
     valueFrom: "sql-warehouse"
+  # Long-lived token (secret) for the warehouse data connection AND the LLM
+  # serving apiKey — replaces the ~1h boot-minted OAuth token so data + LLM keep
+  # working beyond an hour. start.sh uses a pre-set DATABRICKS_TOKEN as-is.
+  - name: DATABRICKS_TOKEN
+    valueFrom: "databricks-token"
   # Scope nao's analytics connection. Use a catalog/schema the app SP can WRITE
   # to (nao creates temp volumes/tables) — not a read-only catalog like `samples`.
   - name: NAO_DATABRICKS_CATALOG

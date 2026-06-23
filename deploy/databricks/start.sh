@@ -63,9 +63,12 @@ echo "Lakebase env present: $(env | grep -oE '^(PG[A-Z]*|DATABRICKS_DATABASE[A-Z
 if [[ -z "${DB_URI:-}" && -n "${PGHOST:-}" ]]; then
   PGPORT="${PGPORT:-5432}"
   PGDATABASE="${PGDATABASE:-databricks_postgres}"
-  PGUSER="${PGUSER:-${DATABRICKS_CLIENT_ID:-}}"
-  # Mint a Lakebase OAuth token for the password if none was injected.
-  if [[ -z "${PGPASSWORD:-}" && -n "${DATABRICKS_DATABASE_INSTANCE:-}" ]]; then
+  # Prefer a stable native Postgres role + password (no expiry). Fall back to the
+  # SP role + a minted OAuth token (~1h) only if the stable creds aren't set.
+  PGUSER="${NAO_PG_USER:-${PGUSER:-${DATABRICKS_CLIENT_ID:-}}}"
+  if [[ -n "${NAO_PG_PASSWORD:-}" ]]; then
+    PGPASSWORD="$NAO_PG_PASSWORD"
+  elif [[ -z "${PGPASSWORD:-}" && -n "${DATABRICKS_DATABASE_INSTANCE:-}" ]]; then
     PGPASSWORD="$("$PY" deploy/databricks/mint_token.py --lakebase "$DATABRICKS_DATABASE_INSTANCE" 2>/dev/null || true)"
   fi
   if [[ -n "${PGUSER:-}" && -n "${PGPASSWORD:-}" ]]; then
