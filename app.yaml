@@ -44,11 +44,14 @@ env:
   #      connection config is generated from these by deploy/databricks/render-config.
   - name: DATABRICKS_WAREHOUSE_ID
     valueFrom: "sql-warehouse"
-  # Scope nao's analytics connection (samples.tpch ships with every workspace).
+  # Scope nao's analytics connection. Use a catalog/schema the app SP can WRITE
+  # to (nao creates temp volumes/tables) — not a read-only catalog like `samples`.
   - name: NAO_DATABRICKS_CATALOG
-    value: "samples"
+    value: "nao_demo_catalog"
   - name: NAO_DATABRICKS_SCHEMA
-    value: "tpch"
+    value: "nao_data"
+  - name: NAO_DATABRICKS_TEMP_SCHEMA
+    value: "nao_data"
 
   # ---- LLM: Databricks Foundation Model serving (OpenAI chat-completions API).
   #      DATABRICKS_HOST is injected by the platform; the `databricks` provider

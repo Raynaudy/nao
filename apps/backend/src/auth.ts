@@ -237,9 +237,12 @@ async function createAuthInstance(baseURL: string) {
 							}
 						} else {
 							await orgQueries.initializeDefaultOrganizationForFirstUser(user.id);
-							if (isSocial) {
-								await orgQueries.addUserToDefaultProjectIfExists(user.id);
-							}
+							// Link every new user (incl. credential / SSO-passthrough, not just
+							// social) to the default project so the data context is available
+							// without a manual admin step or a restart. Idempotent + no-op if no
+							// default project exists. `isSocial` retained for the cloud path above.
+							void isSocial;
+							await orgQueries.addUserToDefaultProjectIfExists(user.id);
 						}
 						await refreshAuthAfterInitialSelfHostedSignup();
 					},

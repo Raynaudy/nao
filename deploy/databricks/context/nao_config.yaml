@@ -17,6 +17,10 @@ databases:
     access_token: "{{ env('DATABRICKS_TOKEN') }}"
     catalog: "{{ env('NAO_DATABRICKS_CATALOG') }}"
     schema_name: "{{ env('NAO_DATABRICKS_SCHEMA') }}"
+    # Writable schema for nao's temp objects (memtables/volumes). Must be a
+    # catalog.schema the app SP can CREATE in — read-only catalogs (e.g. samples)
+    # cause "User does not have ... CREATE VOLUME" errors.
+    temp_schema: "{{ env('NAO_DATABRICKS_TEMP_SCHEMA') }}"
     templates:
       - columns
       - preview
