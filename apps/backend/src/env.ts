@@ -60,6 +60,15 @@ const envSchema = z.object({
 
 	DEFAULT_USER_ROLE: z.enum(['admin', 'user', 'viewer']).default('user'),
 
+	// When true, auto-establish a session from a trusted reverse-proxy identity
+	// header (e.g. Databricks Apps' X-Forwarded-Email) so users don't see a
+	// separate login. Only enable behind a proxy that authenticates every request.
+	NAO_SSO_PASSTHROUGH: z
+		.enum(['true', 'false'])
+		.optional()
+		.default('false')
+		.transform((val) => val === 'true'),
+
 	OIDC_PROVIDER_ID: z.string().optional(),
 	OIDC_PROVIDER_NAME: z.string().optional(),
 	OIDC_DISCOVERY_URL: z.string().optional(),

@@ -23,6 +23,7 @@ import { mcpServerRoutes } from './mcp/routes';
 import { ensureOrganizationSetup } from './queries/organization.queries';
 import { agentRoutes } from './routes/agent';
 import { authRoutes } from './routes/auth';
+import { ssoPassthrough } from './middleware/sso-passthrough';
 import { authErrorRedirectRoutes } from './routes/auth-error-redirect';
 import { brandingRoutes } from './routes/branding';
 import { chartRoutes } from './routes/chart';
@@ -115,6 +116,10 @@ app.addHook('onResponse', (request, reply, done) => {
 	});
 	done();
 });
+
+// Trusted reverse-proxy SSO: auto-establish a session from X-Forwarded-Email
+// (Databricks Apps) so users don't see nao's login. No-op unless NAO_SSO_PASSTHROUGH.
+app.addHook('onRequest', ssoPassthrough);
 
 // Register raw body plugin for Slack signature verification
 app.register(fastifyRawBody, {

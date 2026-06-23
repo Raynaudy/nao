@@ -17,6 +17,15 @@ env:
   # `npm install --omit=dev`, dropping vite and the frontend build fails.
   # start.sh sets NODE_ENV=production for the backend process at runtime.
   # NAO_MODE defaults to "self-hosted"; leave unset.
+  # Single sign-on passthrough: trust Databricks Apps' X-Forwarded-Email so the
+  # Databricks login is the only login (no nao sign-in screen). Auto-provision users.
+  - name: NAO_SSO_PASSTHROUGH
+    value: "true"
+  - name: ENABLE_USER_SIGNUP
+    value: "true"
+  # Public app URL for Better Auth cookies / trusted origins.
+  - name: BETTER_AUTH_URL
+    value: "https://nao-7474646562526015.aws.databricksapps.com"
   # Lakebase instance name, used to mint a Postgres OAuth credential if the
   # database resource doesn't inject a static password.
   - name: DATABRICKS_DATABASE_INSTANCE
@@ -51,6 +60,8 @@ env:
 
   # ---- Auth ----
   # BETTER_AUTH_URL is derived from DATABRICKS_APP_URL at runtime in start.sh.
-  # For stable sessions across restarts, attach a `better-auth-secret` secret
-  # resource and add: { name: BETTER_AUTH_SECRET, valueFrom: "better-auth-secret" }.
-  # Until then start.sh generates an ephemeral secret at boot.
+  # Stable secret (from the `better-auth-secret` secret resource) so the Better
+  # Auth JWKS stays decryptable across restarts — an ephemeral secret breaks
+  # login with "Failed to decrypt private key".
+  - name: BETTER_AUTH_SECRET
+    valueFrom: "better-auth-secret"
