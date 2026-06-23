@@ -24,7 +24,12 @@ cd "$APP_ROOT"
 export PATH="$APP_ROOT/node_modules/.bin:$PATH"
 export NODE_ENV="${NODE_ENV:-production}"
 export HOME="${HOME:-/home/app}"
-PY="$(command -v python || command -v python3)"
+# Resolve an ABSOLUTE interpreter path — `command -v` can return a relative
+# venv path (.venv/bin/python) that breaks once we cd elsewhere (e.g. the sync
+# runs from /tmp/nao-project). sys.executable is always absolute.
+PY="$(python -c 'import sys; print(sys.executable)' 2>/dev/null \
+   || python3 -c 'import sys; print(sys.executable)' 2>/dev/null \
+   || command -v python3 || command -v python)"
 export NAO_PYTHON="$PY"  # used by the backend's data-sync trigger / scheduled job
 
 # --- Web port: Apps assigns it dynamically; nao reads SERVER_PORT / --port -----
