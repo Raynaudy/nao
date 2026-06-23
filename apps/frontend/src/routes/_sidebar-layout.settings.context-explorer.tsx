@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { FileTree } from '@/components/settings/file-tree';
 import { FileViewer } from '@/components/settings/file-viewer';
@@ -24,8 +24,27 @@ function ContextExplorerPage() {
 		enabled: !!selectedPath,
 	});
 
+	const syncData = useMutation(
+		trpc.contextExplorer.syncData.mutationOptions({
+			onSettled: () => fileTree.refetch(),
+		}),
+	);
+
 	return (
 		<div className='flex flex-col flex-1 overflow-hidden'>
+			<div className='flex items-center justify-between gap-2 px-3 py-2 border-b bg-card'>
+				<span className='text-sm text-muted-foreground'>
+					{syncData.isError
+						? `Sync failed: ${syncData.error.message}`
+						: syncData.isSuccess
+							? 'Data context synced.'
+							: 'Synced schema metadata (columns, profiling, descriptions).'}
+				</span>
+				<Button size='sm' onClick={() => syncData.mutate()} disabled={syncData.isPending}>
+					{syncData.isPending ? 'Syncing…' : 'Sync now'}
+				</Button>
+			</div>
+
 			<ResizablePanelGroup
 				orientation='horizontal'
 				className='flex-1 min-h-0'
@@ -33,7 +52,7 @@ function ContextExplorerPage() {
 			>
 				<ResizablePanel id='tree' minSize={180}>
 					<div className='h-full overflow-hidden bg-card'>
-						{fileTree.isLoading ? (
+						{fileTree.isLoading || syncData.isPending ? (
 							<div className='flex items-center justify-center h-32'>
 								<Spinner />
 							</div>

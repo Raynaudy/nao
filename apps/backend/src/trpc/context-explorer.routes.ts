@@ -2,6 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 import { getFileTree, readFileContent } from '../services/context-explorer.service';
+import { runDataSync } from '../services/data-sync.service';
 import { adminProtectedProcedure } from './trpc';
 
 function requireProjectPath(path: string | null): string {
@@ -21,5 +22,17 @@ export const contextExplorerRoutes = {
 		const projectPath = requireProjectPath(ctx.project.path);
 		const content = await readFileContent(input.path, projectPath);
 		return { content };
+	}),
+
+	syncData: adminProtectedProcedure.mutation(async ({ ctx }) => {
+		const projectPath = requireProjectPath(ctx.project.path);
+		const result = await runDataSync(projectPath);
+		if (!result.ok) {
+			throw new TRPCError({
+				code: 'INTERNAL_SERVER_ERROR',
+				message: `Data sync failed:\n${result.output || 'no output'}`,
+			});
+		}
+		return { ok: true, output: result.output };
 	}),
 };

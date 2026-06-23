@@ -27,8 +27,25 @@ databases:
     profiling:
       refresh_policy: "interval"
       interval_days: 1
+    # Scope which schemas/tables to sync. Leave schema_name empty above to sync
+    # ALL schemas in the catalog, then narrow with glob patterns (schema.table):
+    #   include: ['analytics.*', 'prod_*.dim_*']
+    #   exclude: ['temp_*.*', '*.backup_*']
+    #   exclude_columns: ['*.*.*_id']
     include: []
     exclude: []
+
+# To expose MULTIPLE catalogs/schemas, add more entries to `databases` — each is
+# a separate connection. Example (uncomment + set env or literals):
+#   - name: databricks-sales
+#     type: databricks
+#     server_hostname: "{{ env('DATABRICKS_HOST_CLEAN') }}"
+#     http_path: "{{ env('NAO_DATABRICKS_HTTP_PATH') }}"
+#     access_token: "{{ env('DATABRICKS_TOKEN') }}"
+#     catalog: sales_catalog
+#     schema_name: gold
+#     temp_schema: gold          # must be writable by the app service principal
+#     templates: [columns, preview]
 
 notion: null
 slack: null
