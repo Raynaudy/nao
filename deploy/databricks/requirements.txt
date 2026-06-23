@@ -1,0 +1,12 @@
+# Python dependencies installed by the Databricks Apps build (Python 3.11).
+# Installs nao's own CLI/FastAPI package (cli/) with all extras — this pulls in
+# fastapi, uvicorn, ibis-framework[databricks] and databricks-sql-connector.
+./cli[all]
+
+# Databricks SDK: used to mint the app service-principal OAuth tokens for the
+# SQL warehouse / Lakebase / serving endpoint (see deploy/databricks helpers).
+databricks-sdk>=0.40.0
+
+# Explicit pins for the web sidecar in case the CLI extras change upstream.
+uvicorn[standard]>=0.30.0
+fastapi>=0.115.0

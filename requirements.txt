@@ -1,0 +1,3 @@
+# Databricks Apps installs Python deps from this root file. The real, modular
+# list lives under the Databricks deploy target.
+-r deploy/databricks/requirements.txt

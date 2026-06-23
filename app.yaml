@@ -1,0 +1,52 @@
+# =============================================================================
+# Databricks Apps configuration for nao
+# =============================================================================
+# Apps run this `command` (argv, not a shell) from the synced source root on a
+# managed Node 22 + Python 3.11 runtime. start.sh orchestrates the FastAPI
+# sidecar + the Bun-based nao backend and binds the backend to DATABRICKS_APP_PORT.
+#
+# Resources (Lakebase database, SQL warehouse, serving endpoint) are attached to
+# the app and surface as env vars below via `valueFrom`. Names must match the
+# resource keys configured on the app (see databricks.yml / deploy/README.md).
+# -----------------------------------------------------------------------------
+command: ["bash", "deploy/databricks/start.sh"]
+
+env:
+  # ---- Runtime ----
+  - name: NODE_ENV
+    value: "production"
+  - name: NAO_MODE
+    value: "selfhost"
+  - name: NAO_CONTEXT_SOURCE
+    value: "local"
+
+  # ---- Metadata DB: Lakebase (Postgres). Attaching the `lakebase` database
+  #      resource auto-injects PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD;
+  #      start.sh assembles DB_URI from them. DB_SSL forces TLS (Lakebase needs it).
+  - name: DB_SSL
+    value: "true"
+
+  # ---- Analytics data: Databricks SQL warehouse (read by nao's connector).
+  #      The app service principal authenticates via OAuth; nao's Databricks
+  #      connection config is generated from these by deploy/databricks/render-config.
+  - name: DATABRICKS_WAREHOUSE_ID
+    valueFrom: "sql-warehouse"
+  # Scope nao's analytics connection (samples.tpch ships with every workspace).
+  - name: NAO_DATABRICKS_CATALOG
+    value: "samples"
+  - name: NAO_DATABRICKS_SCHEMA
+    value: "tpch"
+
+  # ---- LLM: Databricks Foundation Model serving (OpenAI chat-completions API).
+  #      DATABRICKS_HOST is injected by the platform; the `databricks` provider
+  #      builds baseURL = $DATABRICKS_HOST/serving-endpoints.
+  - name: NAO_LLM_PROVIDER
+    value: "databricks"
+  - name: NAO_DATABRICKS_LLM_ENDPOINT
+    value: "databricks-claude-sonnet-4-5"
+
+  # ---- Auth ----
+  # BETTER_AUTH_URL is derived from DATABRICKS_APP_URL at runtime in start.sh.
+  # For stable sessions across restarts, attach a `better-auth-secret` secret
+  # resource and add: { name: BETTER_AUTH_SECRET, valueFrom: "better-auth-secret" }.
+  # Until then start.sh generates an ephemeral secret at boot.

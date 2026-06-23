@@ -24,7 +24,9 @@
 		"build:cli": "cd cli && python build.py -f",
 		"setup": "cd scripts && ./setup.sh",
 		"release": "./scripts/release.sh",
-		"prepare": "husky",
+		"prepare": "husky || true",
+		"build:frontend:deploy": "cd apps/frontend && vite build",
+		"postinstall": "npm run build:frontend:deploy || true",
 		"pg:start": "docker compose -f docker-compose.postgres.yml up -d",
 		"pg:stop": "docker compose -f docker-compose.postgres.yml stop",
 		"pg:reset": "docker compose -f docker-compose.postgres.yml down -v"
@@ -38,6 +40,7 @@
 		"typescript-eslint": "^8.51.0"
 	},
 	"dependencies": {
+		"bun": "^1.2.0",
 		"@boxlite-ai/boxlite": "^0.3.0",
 		"@emnapi/core": "^1.9.2",
 		"@emnapi/runtime": "^1.9.2",

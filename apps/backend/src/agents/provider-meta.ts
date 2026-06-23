@@ -339,6 +339,28 @@ export const PROVIDER_META: ProviderMetaMap = {
 		summaryModelId: '',
 		models: [],
 	},
+	databricks: {
+		auth: {
+			apiKey: 'required',
+			hint: 'Bearer token for the workspace (DATABRICKS_TOKEN). Base URL is the serving-endpoints root (DATABRICKS_LLM_BASE_URL); model IDs are served-endpoint names.',
+		},
+		envVar: 'DATABRICKS_TOKEN',
+		baseUrlEnvVar: 'DATABRICKS_LLM_BASE_URL',
+		// IDs are Databricks Model Serving endpoint names (e.g. on logfood).
+		extractorModelId: 'databricks-claude-haiku-4-5',
+		summaryModelId: 'databricks-claude-haiku-4-5',
+		models: [
+			{
+				id: 'databricks-claude-sonnet-4-5',
+				name: 'Claude Sonnet 4.5 (Databricks)',
+				default: true,
+				contextWindow: 200_000,
+			},
+			{ id: 'databricks-claude-sonnet-4-6', name: 'Claude Sonnet 4.6 (Databricks)', contextWindow: 200_000 },
+			{ id: 'databricks-claude-opus-4-8', name: 'Claude Opus 4.8 (Databricks)', contextWindow: 200_000 },
+			{ id: 'databricks-claude-haiku-4-5', name: 'Claude Haiku 4.5 (Databricks)', contextWindow: 200_000 },
+		],
+	},
 };
 
 export function getDefaultModelId(provider: LlmProvider): string {
