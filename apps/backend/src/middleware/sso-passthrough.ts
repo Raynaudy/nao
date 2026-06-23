@@ -26,13 +26,9 @@ export async function ssoPassthrough(request: FastifyRequest, reply: FastifyRepl
 		return;
 	}
 
-	// Already has a session cookie — nothing to do.
-	if ((request.headers.cookie ?? '').includes('session_token')) {
-		return;
-	}
-
 	const email = forwardedEmail(request);
 	if (!email) {
+		request.log.info('[sso] no x-forwarded-email on navigation; skipping passthrough');
 		return;
 	}
 	const name = (request.headers['x-forwarded-preferred-username'] as string) || email.split('@')[0];
@@ -41,6 +37,8 @@ export async function ssoPassthrough(request: FastifyRequest, reply: FastifyRepl
 	try {
 		const auth = await getAuth();
 		const headers = convertHeaders(request.headers);
+		// Validate the actual session (don't trust a possibly-stale cookie) so a
+		// dead cookie doesn't block re-establishing a session.
 		if ((await auth.api.getSession({ headers }))?.user) {
 			return;
 		}
@@ -52,13 +50,13 @@ export async function ssoPassthrough(request: FastifyRequest, reply: FastifyRepl
 			await trySignUp(auth, email, password, name);
 			response = await trySignIn(auth, email, password);
 		}
-		if (response) {
-			for (const cookie of response.headers.getSetCookie?.() ?? []) {
-				reply.header('set-cookie', cookie);
-			}
+		const cookies = response?.headers.getSetCookie?.() ?? [];
+		for (const cookie of cookies) {
+			reply.header('set-cookie', cookie);
 		}
-	} catch {
-		// ignore — user can still use the normal login screen
+		request.log.info(`[sso] ${email}: signed-in=${!!response} cookies=${cookies.length}`);
+	} catch (err) {
+		request.log.warn(`[sso] passthrough failed: ${err instanceof Error ? err.message : String(err)}`);
 	}
 }
 
