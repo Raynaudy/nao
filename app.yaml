@@ -13,10 +13,14 @@ command: ["bash", "deploy/databricks/start.sh"]
 
 env:
   # ---- Runtime ----
-  - name: NODE_ENV
-    value: "production"
-  - name: NAO_MODE
-    value: "selfhost"
+  # NOTE: do NOT set NODE_ENV=production here — it makes the Apps build run
+  # `npm install --omit=dev`, dropping vite and the frontend build fails.
+  # start.sh sets NODE_ENV=production for the backend process at runtime.
+  # NAO_MODE defaults to "self-hosted"; leave unset.
+  # Lakebase instance name, used to mint a Postgres OAuth credential if the
+  # database resource doesn't inject a static password.
+  - name: DATABRICKS_DATABASE_INSTANCE
+    value: "nao-db"
   - name: NAO_CONTEXT_SOURCE
     value: "local"
 

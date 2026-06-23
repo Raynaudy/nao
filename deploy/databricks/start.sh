@@ -44,15 +44,27 @@ echo "Context:      $NAO_CONTEXT_SOURCE @ $NAO_DEFAULT_PROJECT_PATH"
 echo "Web port:     $PORT"
 echo "FastAPI port: $FASTAPI_PORT"
 
-# --- Database: build DB_URI from Lakebase-injected PG* vars if not set ---------
-# The Lakebase app resource injects PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD.
-# nao maps DB_URI starting with postgres:// to the Postgres dialect, and DB_SSL
-# to ssl=require (Lakebase requires TLS).
+# --- Database: build DB_URI from Lakebase-injected vars if not set ------------
+# nao maps DB_URI starting with postgres:// to the Postgres dialect; DB_SSL maps
+# to ssl=require (Lakebase requires TLS). The Lakebase resource injects PGHOST/
+# PGPORT/PGDATABASE/PGUSER (var names vary); the password is an OAuth credential
+# the app SP mints (Lakebase has no static password). We log which PG vars are
+# present (names only) to make the wiring observable.
+echo "Lakebase env present: $(env | grep -oE '^(PG[A-Z]*|DATABRICKS_DATABASE[A-Z_]*)=' | tr -d '=' | sort | tr '\n' ' ')"
 if [[ -z "${DB_URI:-}" && -n "${PGHOST:-}" ]]; then
   PGPORT="${PGPORT:-5432}"
   PGDATABASE="${PGDATABASE:-databricks_postgres}"
-  export DB_URI="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
-  echo "DB_URI built from Lakebase PG* env (host=$PGHOST db=$PGDATABASE)"
+  PGUSER="${PGUSER:-${DATABRICKS_CLIENT_ID:-}}"
+  # Mint a Lakebase OAuth token for the password if none was injected.
+  if [[ -z "${PGPASSWORD:-}" && -n "${DATABRICKS_DATABASE_INSTANCE:-}" ]]; then
+    PGPASSWORD="$("$PY" deploy/databricks/mint_token.py --lakebase "$DATABRICKS_DATABASE_INSTANCE" 2>/dev/null || true)"
+  fi
+  if [[ -n "${PGUSER:-}" && -n "${PGPASSWORD:-}" ]]; then
+    export DB_URI="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+    echo "DB_URI built from Lakebase env (host=$PGHOST db=$PGDATABASE user set, pw set)"
+  else
+    echo "WARNING: incomplete Lakebase credentials (user set: ${PGUSER:+yes}, pw set: ${PGPASSWORD:+yes})"
+  fi
 fi
 export DB_SSL="${DB_SSL:-true}"
 
