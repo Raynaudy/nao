@@ -119,6 +119,22 @@ if [[ -z "${DATABRICKS_TOKEN:-}" ]]; then
   fi
 fi
 
+# --- Sync data context (schema metadata) --------------------------------------
+# `nao sync` introspects the configured databases and writes the context tree
+# (columns/profiling/description/preview per table) the agent reads. The deployed
+# source is read-only, so copy the project to a writable dir (stable path → same
+# project record across restarts) and sync there. Non-fatal: if it fails the
+# agent still introspects live via SQL.
+if [[ "${NAO_CONTEXT_SOURCE:-local}" == "local" && -f "$NAO_DEFAULT_PROJECT_PATH/nao_config.yaml" ]]; then
+  WRITABLE_CTX="${NAO_WRITABLE_CONTEXT:-/tmp/nao-project}"
+  mkdir -p "$WRITABLE_CTX"
+  cp -R "$NAO_DEFAULT_PROJECT_PATH/." "$WRITABLE_CTX/"
+  export NAO_DEFAULT_PROJECT_PATH="$WRITABLE_CTX"
+  echo "=== Syncing data context into $WRITABLE_CTX ==="
+  ( cd "$WRITABLE_CTX" && nao sync -p databases ) \
+    || echo "WARNING: nao sync failed; agent will fall back to live SQL introspection."
+fi
+
 # Note: `cli.ts serve` runs Drizzle migrations itself before listening, so no
 # separate migrate step is needed here.
 
