@@ -138,6 +138,9 @@ if [[ "${NAO_CONTEXT_SOURCE:-local}" == "local" && -f "$NAO_DEFAULT_PROJECT_PATH
   WRITABLE_CTX="${NAO_WRITABLE_CONTEXT:-/tmp/nao-project}"
   mkdir -p "$WRITABLE_CTX"
   cp -R "$NAO_DEFAULT_PROJECT_PATH/." "$WRITABLE_CTX/"
+  # Pre-create the output dir: nao sync's cleanup step iterdir()s `databases/`
+  # without an existence check and errors on a fresh project otherwise.
+  mkdir -p "$WRITABLE_CTX/databases"
   export NAO_DEFAULT_PROJECT_PATH="$WRITABLE_CTX"
   echo "=== Syncing data context into $WRITABLE_CTX ==="
   # Invoke via the module (entry point `nao` may not be on PATH); show output.

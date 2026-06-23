@@ -1,4 +1,6 @@
 import { spawn } from 'child_process';
+import { mkdirSync } from 'fs';
+import { join } from 'path';
 
 import { env } from '../env';
 import { logger } from '../utils/logger';
@@ -16,6 +18,12 @@ export interface DataSyncResult {
  */
 export function runDataSync(projectPath: string, providers = 'databases'): Promise<DataSyncResult> {
 	const python = env.NAO_PYTHON || 'python';
+	// nao sync's cleanup iterdir()s databases/ without an existence check.
+	try {
+		mkdirSync(join(projectPath, 'databases'), { recursive: true });
+	} catch {
+		// ignore
+	}
 	return new Promise((resolve) => {
 		const child = spawn(python, ['-m', 'nao_core.main', 'sync', '-p', providers], {
 			cwd: projectPath,
