@@ -90,18 +90,22 @@ fi
 # context's nao_config.yaml reads these via {{ env(...) }}. We derive them from
 # the platform-injected DATABRICKS_HOST + the SQL warehouse resource, and mint a
 # short-lived OAuth token for the app service principal.
+# Normalize the workspace host: Apps may inject DATABRICKS_HOST with or without
+# a scheme. Build a scheme-qualified URL (for the LLM base URL) and a bare host
+# (for nao's warehouse server_hostname).
 if [[ -n "${DATABRICKS_HOST:-}" ]]; then
-  export DATABRICKS_HOST_CLEAN="${DATABRICKS_HOST#https://}"
+  HOST_URL="$DATABRICKS_HOST"
+  [[ "$HOST_URL" == http*://* ]] || HOST_URL="https://$HOST_URL"
+  HOST_URL="${HOST_URL%/}"
+  export DATABRICKS_HOST_CLEAN="${HOST_URL#https://}"
   export DATABRICKS_HOST_CLEAN="${DATABRICKS_HOST_CLEAN#http://}"
-  export DATABRICKS_HOST_CLEAN="${DATABRICKS_HOST_CLEAN%/}"
+  # LLM via Databricks Model Serving (OpenAI-compatible chat API). The
+  # `databricks` provider reads DATABRICKS_TOKEN (apiKey) + DATABRICKS_LLM_BASE_URL.
+  export DATABRICKS_LLM_BASE_URL="${DATABRICKS_LLM_BASE_URL:-${HOST_URL}/serving-endpoints}"
+  echo "Databricks host=$DATABRICKS_HOST_CLEAN  LLM base=$DATABRICKS_LLM_BASE_URL"
 fi
 if [[ -n "${DATABRICKS_WAREHOUSE_ID:-}" ]]; then
   export NAO_DATABRICKS_HTTP_PATH="/sql/1.0/warehouses/${DATABRICKS_WAREHOUSE_ID}"
-fi
-# LLM via Databricks Model Serving (OpenAI-compatible chat API). The `databricks`
-# provider reads DATABRICKS_TOKEN (apiKey, minted below) + DATABRICKS_LLM_BASE_URL.
-if [[ -n "${DATABRICKS_HOST:-}" ]]; then
-  export DATABRICKS_LLM_BASE_URL="${DATABRICKS_LLM_BASE_URL:-${DATABRICKS_HOST%/}/serving-endpoints}"
 fi
 # Mint an app-SP OAuth token for the data connection (valid ~1h). See README for
 # the auto-refresh enhancement (patching the connector to use a credentials
