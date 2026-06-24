@@ -43,6 +43,9 @@ env:
     value: "nao_app"
   - name: NAO_PG_PASSWORD
     valueFrom: "pg-password"
+  # Dedicated database owned by nao_app (full schema control).
+  - name: NAO_PG_DATABASE
+    value: "nao"
 
   # ---- Analytics data: Databricks SQL warehouse (read by nao's connector).
   #      The app service principal authenticates via OAuth; nao's Databricks

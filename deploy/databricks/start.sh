@@ -62,7 +62,9 @@ echo "FastAPI port: $FASTAPI_PORT"
 echo "Lakebase env present: $(env | grep -oE '^(PG[A-Z]*|DATABRICKS_DATABASE[A-Z_]*)=' | tr -d '=' | sort | tr '\n' ' ')"
 if [[ -z "${DB_URI:-}" && -n "${PGHOST:-}" ]]; then
   PGPORT="${PGPORT:-5432}"
-  PGDATABASE="${PGDATABASE:-databricks_postgres}"
+  # Use a dedicated database owned by the app's native role when set, so it fully
+  # controls its schemas (avoids permission clashes with the SP-owned default DB).
+  PGDATABASE="${NAO_PG_DATABASE:-${PGDATABASE:-databricks_postgres}}"
   # Prefer a stable native Postgres role + password (no expiry). Fall back to the
   # SP role + a minted OAuth token (~1h) only if the stable creds aren't set.
   PGUSER="${NAO_PG_USER:-${PGUSER:-${DATABRICKS_CLIENT_ID:-}}}"
