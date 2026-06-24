@@ -346,10 +346,7 @@ export const PROVIDER_META: ProviderMetaMap = {
 		},
 		envVar: 'DATABRICKS_TOKEN',
 		baseUrlEnvVar: 'DATABRICKS_LLM_BASE_URL',
-		// Model IDs are the names of chat serving endpoints in your Databricks
-		// workspace (Foundation Model APIs or your own served models). Availability
-		// varies by workspace and region — these are common defaults; add the ones
-		// your workspace serves as custom models in the LLM settings.
+		// Endpoint availability varies by workspace/region; add the ones yours serves as custom models.
 		extractorModelId: 'databricks-meta-llama-3-1-8b-instruct',
 		summaryModelId: 'databricks-meta-llama-3-1-8b-instruct',
 		models: [

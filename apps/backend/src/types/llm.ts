@@ -62,8 +62,7 @@ export type ProviderConfigMap = {
 	bedrock: AmazonBedrockLanguageModelOptions;
 	vertex: GoogleGenerativeAIProviderOptions;
 	azure: AzureOpenAIResponsesProviderOptions;
-	// Databricks Model Serving is reached via the OpenAI-compatible chat API; it
-	// takes no nao-specific provider options.
+	// Reached via the OpenAI-compatible chat shim; takes no provider-specific options.
 	databricks: Record<string, never>;
 };
 
