@@ -67,12 +67,9 @@ env:
       value: 'nao_data'
 
     # ---- LLM: Databricks Foundation Model serving (OpenAI chat-completions API).
-    #      DATABRICKS_HOST is injected by the platform; the `databricks` provider
-    #      builds baseURL = $DATABRICKS_HOST/serving-endpoints.
-    - name: NAO_LLM_PROVIDER
-      value: 'databricks'
-    - name: NAO_DATABRICKS_LLM_ENDPOINT
-      value: 'databricks-claude-sonnet-4-5'
+    #      No env needed here — start.sh sets DATABRICKS_LLM_BASE_URL from
+    #      DATABRICKS_HOST, and the `databricks` provider uses DATABRICKS_TOKEN as
+    #      its apiKey. Models are selectable in the chat UI.
 
     # ---- Auth ----
     # BETTER_AUTH_URL is derived from DATABRICKS_APP_URL at runtime in start.sh.

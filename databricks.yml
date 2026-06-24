@@ -64,6 +64,18 @@ resources:
                       scope: nao
                       key: better_auth_secret
                       permission: READ
+                - name: pg-password
+                  description: 'Lakebase native-role password (durable creds)'
+                  secret:
+                      scope: nao
+                      key: pg_password
+                      permission: READ
+                - name: databricks-token
+                  description: 'Long-lived token for warehouse data + LLM'
+                  secret:
+                      scope: nao
+                      key: databricks_token
+                      permission: READ
 
 targets:
     # Dedicated FE-VM (serverless) provisioned for this deployment.
