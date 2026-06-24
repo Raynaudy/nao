@@ -12,18 +12,25 @@ Databricks App "nao"  (managed Node 22 + Python 3.11 runtime)
     ├─ FastAPI sidecar (text-to-SQL)            127.0.0.1:8005   (internal)
     └─ nao backend (Bun, Fastify; UI + tRPC)    0.0.0.0:$DATABRICKS_APP_PORT
   resources:
-    ├─ lakebase            → PG* env → DB_URI    (metadata / chat history)
+    ├─ lakebase            → PGHOST/PGPORT       (metadata / chat history)
     ├─ sql-warehouse       → DATABRICKS_WAREHOUSE_ID  (analytics data)
     ├─ serving-endpoint    → Claude FM API       (LLM)
-    └─ better-auth-secret  → BETTER_AUTH_SECRET
+    ├─ better-auth-secret  → BETTER_AUTH_SECRET
+    ├─ pg-password         → Lakebase native-role password (stable)
+    └─ databricks-token    → long-lived token for warehouse + LLM (stable)
 ```
 
 - **app.yaml** and **requirements.txt** live at the **repo root** (Apps discovers
   them there). They are thin: app.yaml's `command` calls `deploy/databricks/start.sh`,
   and root `requirements.txt` does `-r deploy/databricks/requirements.txt`.
-- **start.sh** orchestrates both processes (there is no supervisord on Apps),
-  builds `DB_URI` from the Lakebase `PG*` vars, derives the warehouse `http_path`,
-  and mints an app-SP OAuth token for the data connection.
+- **start.sh** orchestrates both processes (there is no supervisord on Apps).
+  It builds `DB_URI` for Lakebase using a **dedicated native Postgres role
+  (`nao_app`) + database (`nao`)** authenticated with a **stable password**
+  (`pg-password` secret), derives the warehouse `http_path`, and uses a
+  **long-lived `DATABRICKS_TOKEN`** (`databricks-token` secret) for both the
+  warehouse data connection and the LLM. These stable credentials avoid the
+  ~1h expiry of boot-minted OAuth tokens. (`mint_token.py` remains a fallback
+  when the secrets aren't set.)
 - **Bun**: nao's backend is hard-coupled to Bun (`bun:sqlite`, `Bun.main`). The
   Apps runtime has Node but not Bun, so the root `package.json` adds the `bun`
   npm package; `npm install` vendors the binary into `node_modules/.bin` and
@@ -45,36 +52,34 @@ Then attach the app resources (`sql-warehouse`, `serving-endpoint`, `lakebase`,
 and the `better-auth-secret` / `pg-password` / `databricks-token` secrets) and
 deploy.
 
-## One-time setup gotchas (learned in practice)
+## Design notes (why it's set up this way)
 
-- **Lakebase `public` schema grant.** Postgres 15+ doesn't grant `CREATE` on
-  `public` by default, so nao's first migration fails with `permission denied for
-schema public`. As a Lakebase admin, grant the app SP (its Postgres role name is
-  the SP **client id**):
-  `sql
-    GRANT CREATE, USAGE ON SCHEMA public TO "<app-sp-client-id>";
-    `
-  (Connect with `psql` using a token from `databricks database generate-database-credential`.)
-- **Stable `BETTER_AUTH_SECRET`.** Must be a fixed secret, not ephemeral — Better
-  Auth encrypts its JWKS with it and stores them in Lakebase. A changing secret
-  causes `Failed to decrypt private key` on every request (login loop). Create one:
-    ```bash
-    databricks secrets create-scope nao
-    databricks secrets put-secret nao better_auth_secret --string-value "$(openssl rand -hex 32)"
-    ```
-    and attach it as the `better-auth-secret` app resource.
+- **Durable credentials, not boot-minted OAuth.** The Lakebase OAuth token,
+  warehouse token, and LLM token all expire ~1h, which used to break the app
+  after an hour. Instead `setup.sh` provisions a **native Postgres role
+  (`nao_app`) owning a dedicated `nao` database** (full schema control, stable
+  password) and a **long-lived token** for the warehouse + LLM. The app SP role
+  is Databricks-managed and can't take a native password, hence the dedicated
+  role. A dedicated database also avoids `permission denied` clashes with the
+  SP-owned objects in the default `databricks_postgres` DB.
+- **Stable `BETTER_AUTH_SECRET`.** Better Auth encrypts its JWKS with it and
+  stores them in Lakebase; an ephemeral secret causes `Failed to decrypt private
+key` on every request (login loop). `setup.sh` creates a stable one.
 - **No separate login (SSO passthrough).** With `NAO_SSO_PASSTHROUGH=true`, nao
   trusts Databricks Apps' `X-Forwarded-Email` and auto-creates a session, so the
   Databricks SSO is the only login. Leave it off if the app isn't behind an
   authenticating proxy.
+- **Writable analytics schema.** nao creates temp volumes/tables, so point it at
+  a catalog/schema the app can write to (`temp_schema`) — a read-only catalog
+  like `samples` fails with `User does not have ... CREATE VOLUME`.
 
 ## Prerequisites
 
-- `databricks` CLI authenticated to the target workspace (e.g. `databricks auth login --profile logfood`).
-- A **Lakebase** database instance.
-- A **SQL warehouse** (serverless recommended).
-- A **Model Serving** endpoint for Claude (Foundation Model API), e.g. `databricks-claude-sonnet-4-5`.
-- A secret scope `nao` with key `better_auth_secret` (`openssl rand -hex 32`).
+- `databricks` CLI authenticated to the target workspace.
+- A **Lakebase** database instance, a **SQL warehouse** (serverless recommended),
+  and a **Model Serving** endpoint for Claude (e.g. `databricks-claude-sonnet-4-5`).
+- Run **`setup.sh`** (above) — it creates the `nao_app` role + `nao` DB and the
+  `better_auth_secret` / `pg_password` / `databricks_token` secrets.
 - The frontend prebuilt: `apps/frontend/dist` present (CI builds it — see `.github/workflows`).
 
 ## Deploy
@@ -82,48 +87,44 @@ schema public`. As a Lakebase admin, grant the app SP (its Postgres role name is
 ### Option A — Asset Bundle (repeatable)
 
 ```bash
-databricks bundle validate -t logfood
-databricks bundle deploy   -t logfood \
+databricks bundle validate -t <target>            # targets in databricks.yml
+databricks bundle deploy   -t <target> \
   --var="warehouse_id=<id>" --var="lakebase_name=<instance>"
-databricks bundle run nao  -t logfood
+databricks bundle run nao  -t <target>
 ```
 
 ### Option B — CLI (first manual pass)
 
 ```bash
-databricks apps create nao -p logfood
-databricks sync . "/Workspace/Users/$(whoami)/nao" -p logfood \
+databricks apps create nao -p <profile>
+databricks sync . "/Workspace/Users/$(whoami)/nao_src" -p <profile> \
   --exclude node_modules --exclude .git
 databricks apps deploy nao \
-  --source-code-path "/Workspace/Users/$(whoami)/nao" -p logfood
-# then attach the lakebase / sql-warehouse / serving-endpoint / secret resources
-# to the app and grant the app service principal:
-#   CAN USE on the warehouse, SELECT on target UC tables,
-#   CAN QUERY on the serving endpoint, connect+create on Lakebase.
-databricks apps logs nao -p logfood   # watch [SYSTEM]/[APP] boot lines
+  --source-code-path "/Workspace/Users/$(whoami)/nao_src" -p <profile>
+# Attach the app resources: lakebase, sql-warehouse, serving-endpoint, and the
+# better-auth-secret / pg-password / databricks-token secrets. Data + LLM use the
+# long-lived token (so no SP grants are needed there); Lakebase uses the nao_app
+# role provisioned by setup.sh.
+databricks apps logs nao -p <profile>   # watch [SYSTEM]/[APP] boot lines
 ```
 
 ## Configuration (env)
 
-| Var                                                | Source                            | Purpose                                                        |
-| -------------------------------------------------- | --------------------------------- | -------------------------------------------------------------- |
-| `PG*`                                              | lakebase resource                 | assembled into `DB_URI` (Postgres) by start.sh                 |
-| `DB_SSL=true`                                      | app.yaml                          | Lakebase requires TLS                                          |
-| `DATABRICKS_WAREHOUSE_ID`                          | sql-warehouse resource            | → `http_path` for the data connection                          |
-| `DATABRICKS_HOST`                                  | platform                          | bare host for the data connection                              |
-| `DATABRICKS_TOKEN`                                 | minted at boot (SP OAuth)         | data-connection bearer token (or set a PAT secret to override) |
-| `NAO_DATABRICKS_CATALOG` / `NAO_DATABRICKS_SCHEMA` | app.yaml (optional)               | scope the analytics catalog/schema                             |
-| `NAO_DATABRICKS_LLM_ENDPOINT`                      | app.yaml                          | served Claude endpoint name                                    |
-| `BETTER_AUTH_SECRET`                               | better-auth-secret resource       | stable sessions                                                |
-| `BETTER_AUTH_URL`                                  | derived from `DATABRICKS_APP_URL` | auth callbacks                                                 |
+| Var                                                   | Source                            | Purpose                                          |
+| ----------------------------------------------------- | --------------------------------- | ------------------------------------------------ |
+| `PGHOST` / `PGPORT`                                   | lakebase resource                 | Lakebase host/port for `DB_URI`                  |
+| `NAO_PG_USER` / `NAO_PG_PASSWORD` / `NAO_PG_DATABASE` | app.yaml + `pg-password` secret   | stable native role / password / dedicated DB     |
+| `DB_SSL=true`                                         | app.yaml                          | Lakebase requires TLS                            |
+| `DATABRICKS_WAREHOUSE_ID`                             | sql-warehouse resource            | → `http_path` for the data connection            |
+| `DATABRICKS_TOKEN`                                    | `databricks-token` secret         | long-lived token for warehouse data + LLM apiKey |
+| `DATABRICKS_HOST`                                     | platform                          | host → bare hostname + LLM serving base URL      |
+| `NAO_DATABRICKS_CATALOG` / `_SCHEMA` / `_TEMP_SCHEMA` | app.yaml                          | analytics catalog/schema + writable temp schema  |
+| `NAO_SSO_PASSTHROUGH=true`                            | app.yaml                          | no separate login (trust `X-Forwarded-Email`)    |
+| `BETTER_AUTH_SECRET`                                  | better-auth-secret secret         | stable sessions / JWKS                           |
+| `BETTER_AUTH_URL`                                     | derived from `DATABRICKS_APP_URL` | auth callbacks                                   |
 
-## Known limitations (v1)
+## Known limitations
 
-- **OAuth token expiry (~1h).** The data-connection token and the Lakebase
-  password are short-lived. v1 mints them at boot; long-running sessions can
-  fail after ~1h. Enhancement: patch `cli/nao_core/config/databases/databricks.py`
-  to use `databricks-sql-connector`'s OAuth `credentials_provider` (auto-refresh),
-  and add a Lakebase password refresher.
 - **Chromium / KVM absent.** Chart-image export (puppeteer/Chromium) and Boxlite
   sandboxing (`/dev/kvm`) don't run on Apps. The core NL→SQL→in-browser-chart
   path is unaffected.
