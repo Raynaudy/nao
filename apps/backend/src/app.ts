@@ -21,10 +21,10 @@ import { LOG_CLEANUP_JOB_NAME, logCleanupHandler, runLogCleanup } from './handle
 import { MCP_QUERY_DATA_CLEANUP_JOB_NAME, mcpQueryDataCleanupHandler } from './handlers/mcp-query-data-cleanup.handler';
 import { STORY_REFRESH_JOB_NAME, storyRefreshHandler } from './handlers/story-refresh.handler';
 import { mcpServerRoutes } from './mcp/routes';
+import { ssoPassthrough } from './middleware/sso-passthrough';
 import { ensureOrganizationSetup } from './queries/organization.queries';
 import { agentRoutes } from './routes/agent';
 import { authRoutes } from './routes/auth';
-import { ssoPassthrough } from './middleware/sso-passthrough';
 import { authErrorRedirectRoutes } from './routes/auth-error-redirect';
 import { brandingRoutes } from './routes/branding';
 import { chartRoutes } from './routes/chart';
