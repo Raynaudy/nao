@@ -38,12 +38,12 @@ export function runDataSync(projectPath: string, providers = 'databases'): Promi
 		child.stderr.on('data', capture);
 
 		child.on('error', (err) => {
-			logger.error(`Data sync failed to start: ${err.message}`, { source: 'data-sync' });
+			logger.error(`Data sync failed to start: ${err.message}`, { source: 'system' });
 			resolve({ ok: false, output: `Failed to start nao sync: ${err.message}` });
 		});
 		child.on('close', (code) => {
 			const ok = code === 0;
-			logger[ok ? 'info' : 'error'](`Data sync exited with code ${code}`, { source: 'data-sync' });
+			logger[ok ? 'info' : 'error'](`Data sync exited with code ${code}`, { source: 'system' });
 			resolve({ ok, output: output.slice(-4000) });
 		});
 	});

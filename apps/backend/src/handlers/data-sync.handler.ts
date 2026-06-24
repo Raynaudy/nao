@@ -12,6 +12,6 @@ export const dataSyncHandler: JobHandler = async () => {
 	}
 	const result = await runDataSync(projectPath);
 	if (!result.ok) {
-		logger.warn('Scheduled data sync failed', { source: 'data-sync' });
+		logger.warn('Scheduled data sync failed', { source: 'system' });
 	}
 };
