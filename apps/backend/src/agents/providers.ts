@@ -159,7 +159,9 @@ export const LLM_PROVIDERS: LlmProvidersType = {
 		// Fall back to DATABRICKS_LLM_BASE_URL so a UI-configured token without an
 		// explicit base URL still targets Databricks (not the default OpenAI host).
 		create: (settings, modelId) =>
-			createOpenAI({ ...settings, baseURL: settings.baseURL || process.env.DATABRICKS_LLM_BASE_URL }).chat(modelId),
+			createOpenAI({ ...settings, baseURL: settings.baseURL || process.env.DATABRICKS_LLM_BASE_URL }).chat(
+				modelId,
+			),
 	},
 };
 
