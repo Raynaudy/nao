@@ -29,6 +29,22 @@ Databricks App "nao"  (managed Node 22 + Python 3.11 runtime)
   npm package; `npm install` vendors the binary into `node_modules/.bin` and
   start.sh runs the backend with it.
 
+## One-time infra setup
+
+Run the setup script once (provisions durable, stable credentials — a native
+Postgres role + dedicated `nao` database + a long-lived token — and stores the
+app secrets). This avoids the ~1h OAuth-token expiry that otherwise degrades the
+app after an hour:
+
+```bash
+PROFILE=<cli-profile> INSTANCE=nao-db ADMIN_USER=<you@databricks.com> \
+  bash deploy/databricks/setup.sh
+```
+
+Then attach the app resources (`sql-warehouse`, `serving-endpoint`, `lakebase`,
+and the `better-auth-secret` / `pg-password` / `databricks-token` secrets) and
+deploy.
+
 ## One-time setup gotchas (learned in practice)
 
 - **Lakebase `public` schema grant.** Postgres 15+ doesn't grant `CREATE` on
