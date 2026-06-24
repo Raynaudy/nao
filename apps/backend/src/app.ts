@@ -16,10 +16,12 @@ import {
 	contextRecommendationsHandler,
 	ensureContextRecommendationsSchedules,
 } from './handlers/context-recommendations.handler';
+import { DATA_SYNC_JOB_NAME, dataSyncHandler } from './handlers/data-sync.handler';
 import { LOG_CLEANUP_JOB_NAME, logCleanupHandler, runLogCleanup } from './handlers/log-cleanup.handler';
 import { MCP_QUERY_DATA_CLEANUP_JOB_NAME, mcpQueryDataCleanupHandler } from './handlers/mcp-query-data-cleanup.handler';
 import { STORY_REFRESH_JOB_NAME, storyRefreshHandler } from './handlers/story-refresh.handler';
 import { mcpServerRoutes } from './mcp/routes';
+import { ssoPassthrough } from './middleware/sso-passthrough';
 import { ensureOrganizationSetup } from './queries/organization.queries';
 import { agentRoutes } from './routes/agent';
 import { authRoutes } from './routes/auth';
@@ -115,6 +117,10 @@ app.addHook('onResponse', (request, reply, done) => {
 	});
 	done();
 });
+
+// Trusted reverse-proxy SSO: auto-establish a session from X-Forwarded-Email
+// (Databricks Apps) so users don't see nao's login. No-op unless NAO_SSO_PASSTHROUGH.
+app.addHook('onRequest', ssoPassthrough);
 
 // Register raw body plugin for Slack signature verification
 app.register(fastifyRawBody, {
@@ -317,6 +323,17 @@ export const startServer = async (opts: { port: number; host: string }) => {
 
 	registerJob(AUTOMATION_JOB_NAME, automationHandler);
 	registerJob(STORY_REFRESH_JOB_NAME, storyRefreshHandler);
+
+	// Refresh the data context (schema/profiling metadata) on a schedule when a
+	// local project is configured. On-demand sync is available from the UI.
+	if (env.NAO_DEFAULT_PROJECT_PATH && env.NAO_DATA_SYNC_CRON) {
+		registerJob(DATA_SYNC_JOB_NAME, dataSyncHandler);
+		await ensureRecurring({
+			name: DATA_SYNC_JOB_NAME,
+			cron: env.NAO_DATA_SYNC_CRON,
+			uniqueKey: DATA_SYNC_JOB_NAME,
+		});
+	}
 
 	registerJob(MCP_QUERY_DATA_CLEANUP_JOB_NAME, mcpQueryDataCleanupHandler);
 	await ensureRecurring({

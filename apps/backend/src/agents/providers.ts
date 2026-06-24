@@ -150,6 +150,19 @@ export const LLM_PROVIDERS: LlmProvidersType = {
 		},
 		defaultOptions: { store: false },
 	},
+	databricks: {
+		...PROVIDER_META.databricks,
+		// Databricks Model Serving exposes an OpenAI-compatible *chat completions*
+		// API at <host>/serving-endpoints. settings carries the bearer token
+		// (apiKey) and baseURL; modelId is the served endpoint name. Note: .chat(),
+		// not .responses() — Databricks doesn't speak the OpenAI Responses API.
+		// Fall back to DATABRICKS_LLM_BASE_URL so a UI-configured token without an
+		// explicit base URL still targets Databricks (not the default OpenAI host).
+		create: (settings, modelId) =>
+			createOpenAI({ ...settings, baseURL: settings.baseURL || process.env.DATABRICKS_LLM_BASE_URL }).chat(
+				modelId,
+			),
+	},
 };
 
 export type ProviderModelResult = {

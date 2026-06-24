@@ -1,0 +1,95 @@
+# =============================================================================
+# Databricks Asset Bundle for deploying nao as a Databricks App.
+# =============================================================================
+# Deploy:  databricks bundle deploy -t logfood
+# Run:     databricks bundle run nao -t logfood
+#
+# The app source is the whole repo (monorepo): app.yaml + requirements.txt live
+# at the root and delegate into deploy/databricks/. Attach the resources below
+# so the keys referenced by `valueFrom` in app.yaml resolve at runtime.
+#
+# NOTE: the App resources schema for DABs is evolving — run `databricks bundle
+# validate -t <target>` and reconcile before relying on this. The CLI path
+# (databricks apps create/deploy + attaching resources) is documented in
+# deploy/README.md as the fallback.
+# -----------------------------------------------------------------------------
+bundle:
+    name: nao
+
+# The frontend is prebuilt in CI (see .github/workflows/deploy-databricks.yml).
+# apps/frontend/dist is gitignored, so include it explicitly for the app sync;
+# node_modules / .git are excluded (Apps reinstalls deps from package.json).
+sync:
+    include:
+        - apps/frontend/dist/**
+    exclude:
+        - node_modules
+        - .git
+        - '**/__pycache__'
+
+variables:
+    warehouse_id:
+        description: SQL warehouse id nao uses for analytics queries
+    lakebase_name:
+        description: Lakebase database instance name backing nao's metadata DB
+    llm_endpoint:
+        description: Databricks Model Serving endpoint (Claude) for the LLM
+        default: databricks-claude-sonnet-4-5
+
+resources:
+    apps:
+        nao:
+            name: nao
+            description: 'nao — open-source analytics agent (Databricks Apps + Lakebase)'
+            source_code_path: .
+            resources:
+                - name: sql-warehouse
+                  description: 'Analytics warehouse'
+                  sql_warehouse:
+                      id: ${var.warehouse_id}
+                      permission: CAN_USE
+                - name: lakebase
+                  description: 'Metadata / chat-history Postgres'
+                  database:
+                      instance_name: ${var.lakebase_name}
+                      permission: CAN_CONNECT_AND_CREATE
+                - name: serving-endpoint
+                  description: 'Claude via Foundation Model serving'
+                  serving_endpoint:
+                      name: ${var.llm_endpoint}
+                      permission: CAN_QUERY
+                - name: better-auth-secret
+                  description: 'Stable Better Auth secret'
+                  secret:
+                      scope: nao
+                      key: better_auth_secret
+                      permission: READ
+                - name: pg-password
+                  description: 'Lakebase native-role password (durable creds)'
+                  secret:
+                      scope: nao
+                      key: pg_password
+                      permission: READ
+                - name: databricks-token
+                  description: 'Long-lived token for warehouse data + LLM'
+                  secret:
+                      scope: nao
+                      key: databricks_token
+                      permission: READ
+
+targets:
+    # Dedicated FE-VM (serverless) provisioned for this deployment.
+    nao-demo:
+        mode: development
+        default: true
+        workspace:
+            host: https://fevm-nao-demo.cloud.databricks.com
+        variables:
+            warehouse_id: 26b0fa24ddb0ce54
+            lakebase_name: nao-db
+            llm_endpoint: databricks-claude-sonnet-4-5
+
+    logfood:
+        mode: development
+        workspace:
+            host: https://adb-2548836972759138.18.azuredatabricks.net

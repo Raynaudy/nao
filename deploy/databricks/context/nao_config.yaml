@@ -1,0 +1,53 @@
+# nao project context for the Databricks Apps deployment.
+#
+# Values are resolved from environment variables at load time via nao's
+# {{ env(...) }} secret templating. start.sh populates them from the app's
+# Databricks resources (SQL warehouse) + the platform-injected DATABRICKS_HOST,
+# and mints DATABRICKS_TOKEN for the app service principal.
+#
+# To point at your own catalog/schema, set NAO_DATABRICKS_CATALOG /
+# NAO_DATABRICKS_SCHEMA in app.yaml (or the DAB), or edit this file directly.
+project_name: databricks
+
+databases:
+    - name: databricks
+      type: databricks
+      server_hostname: "{{ env('DATABRICKS_HOST_CLEAN') }}"
+      http_path: "{{ env('NAO_DATABRICKS_HTTP_PATH') }}"
+      access_token: "{{ env('DATABRICKS_TOKEN') }}"
+      catalog: "{{ env('NAO_DATABRICKS_CATALOG') }}"
+      schema_name: "{{ env('NAO_DATABRICKS_SCHEMA') }}"
+      # Writable schema for nao's temp objects (memtables/volumes). Must be a
+      # catalog.schema the app SP can CREATE in — read-only catalogs (e.g. samples)
+      # cause "User does not have ... CREATE VOLUME" errors.
+      temp_schema: "{{ env('NAO_DATABRICKS_TEMP_SCHEMA') }}"
+      templates:
+          - columns
+          - preview
+      profiling:
+          refresh_policy: 'interval'
+          interval_days: 1
+      # Scope which schemas/tables to sync. Leave schema_name empty above to sync
+      # ALL schemas in the catalog, then narrow with glob patterns (schema.table):
+      #   include: ['analytics.*', 'prod_*.dim_*']
+      #   exclude: ['temp_*.*', '*.backup_*']
+      #   exclude_columns: ['*.*.*_id']
+      include: []
+      exclude: []
+
+# To expose MULTIPLE catalogs/schemas, add more entries to `databases` — each is
+# a separate connection. Example (uncomment + set env or literals):
+#   - name: databricks-sales
+#     type: databricks
+#     server_hostname: "{{ env('DATABRICKS_HOST_CLEAN') }}"
+#     http_path: "{{ env('NAO_DATABRICKS_HTTP_PATH') }}"
+#     access_token: "{{ env('DATABRICKS_TOKEN') }}"
+#     catalog: sales_catalog
+#     schema_name: gold
+#     temp_schema: gold          # must be writable by the app service principal
+#     templates: [columns, preview]
+
+notion: null
+slack: null
+# LLM is configured at the app level (Databricks Model Serving). See app.yaml.
+llm: null

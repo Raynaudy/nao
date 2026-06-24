@@ -1,0 +1,80 @@
+# =============================================================================
+# Databricks Apps configuration for nao
+# =============================================================================
+# Apps run this `command` (argv, not a shell) from the synced source root on a
+# managed Node 22 + Python 3.11 runtime. start.sh orchestrates the FastAPI
+# sidecar + the Bun-based nao backend and binds the backend to DATABRICKS_APP_PORT.
+#
+# Resources (Lakebase database, SQL warehouse, serving endpoint) are attached to
+# the app and surface as env vars below via `valueFrom`. Names must match the
+# resource keys configured on the app (see databricks.yml / deploy/README.md).
+# -----------------------------------------------------------------------------
+command: ['bash', 'deploy/databricks/start.sh']
+
+env:
+    # ---- Runtime ----
+    # NOTE: do NOT set NODE_ENV=production here — it makes the Apps build run
+    # `npm install --omit=dev`, dropping vite and the frontend build fails.
+    # start.sh sets NODE_ENV=production for the backend process at runtime.
+    # NAO_MODE defaults to "self-hosted"; leave unset.
+    # Single sign-on passthrough: trust Databricks Apps' X-Forwarded-Email so the
+    # Databricks login is the only login (no nao sign-in screen). Auto-provision users.
+    - name: NAO_SSO_PASSTHROUGH
+      value: 'true'
+    - name: ENABLE_USER_SIGNUP
+      value: 'true'
+    # Public app URL for Better Auth cookies / trusted origins.
+    - name: BETTER_AUTH_URL
+      value: 'https://nao-7474646562526015.aws.databricksapps.com'
+    # Lakebase instance name, used to mint a Postgres OAuth credential if the
+    # database resource doesn't inject a static password.
+    - name: DATABRICKS_DATABASE_INSTANCE
+      value: 'nao-db'
+    - name: NAO_CONTEXT_SOURCE
+      value: 'local'
+
+    # ---- Metadata DB: Lakebase (Postgres). The `lakebase` resource injects
+    #      PGHOST/PGPORT/PGDATABASE; start.sh assembles DB_URI. We authenticate as a
+    #      dedicated NATIVE Postgres role with a STABLE password (secret) instead of
+    #      a ~1h OAuth token, so the app DB doesn't fail after an hour.
+    - name: DB_SSL
+      value: 'true'
+    - name: NAO_PG_USER
+      value: 'nao_app'
+    - name: NAO_PG_PASSWORD
+      valueFrom: 'pg-password'
+    # Dedicated database owned by nao_app (full schema control).
+    - name: NAO_PG_DATABASE
+      value: 'nao'
+
+    # ---- Analytics data: Databricks SQL warehouse (read by nao's connector).
+    #      The app service principal authenticates via OAuth; nao's Databricks
+    #      connection config is generated from these by deploy/databricks/render-config.
+    - name: DATABRICKS_WAREHOUSE_ID
+      valueFrom: 'sql-warehouse'
+    # Long-lived token (secret) for the warehouse data connection AND the LLM
+    # serving apiKey — replaces the ~1h boot-minted OAuth token so data + LLM keep
+    # working beyond an hour. start.sh uses a pre-set DATABRICKS_TOKEN as-is.
+    - name: DATABRICKS_TOKEN
+      valueFrom: 'databricks-token'
+    # Scope nao's analytics connection. Use a catalog/schema the app SP can WRITE
+    # to (nao creates temp volumes/tables) — not a read-only catalog like `samples`.
+    - name: NAO_DATABRICKS_CATALOG
+      value: 'nao_demo_catalog'
+    - name: NAO_DATABRICKS_SCHEMA
+      value: 'nao_data'
+    - name: NAO_DATABRICKS_TEMP_SCHEMA
+      value: 'nao_data'
+
+    # ---- LLM: Databricks Foundation Model serving (OpenAI chat-completions API).
+    #      No env needed here — start.sh sets DATABRICKS_LLM_BASE_URL from
+    #      DATABRICKS_HOST, and the `databricks` provider uses DATABRICKS_TOKEN as
+    #      its apiKey. Models are selectable in the chat UI.
+
+    # ---- Auth ----
+    # BETTER_AUTH_URL is derived from DATABRICKS_APP_URL at runtime in start.sh.
+    # Stable secret (from the `better-auth-secret` secret resource) so the Better
+    # Auth JWKS stays decryptable across restarts — an ephemeral secret breaks
+    # login with "Failed to decrypt private key".
+    - name: BETTER_AUTH_SECRET
+      valueFrom: 'better-auth-secret'

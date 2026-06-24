@@ -23,14 +23,8 @@ import { hasFeature, LICENSE_FEATURES } from './services/license.service';
 import {
 	augmentSocialProvidersWithMicrosoft,
 	getTrustedProvidersForMicrosoft,
-	isSocialProviderMicrosoft,
 } from './services/microsoft-auth.service';
-import {
-	augmentPluginsWithOidc,
-	getOidcProviderId,
-	getTrustedProvidersForOidc,
-	isSocialProviderOidc,
-} from './services/oidc-auth.service';
+import { augmentPluginsWithOidc, getOidcProviderId, getTrustedProvidersForOidc } from './services/oidc-auth.service';
 import { buildForgotPasswordEmail } from './utils/email-builders';
 import { buildGithubAllowlist, isEmailDomainAllowed, resolveProviderId } from './utils/utils';
 
@@ -216,10 +210,6 @@ async function createAuthInstance(baseURL: string) {
 					},
 					async after(user, ctx) {
 						const providerId = resolveProviderId(ctx);
-						const isSocial =
-							providerId === 'google' ||
-							providerId === 'github' ||
-							(ssoEnabled && (isSocialProviderMicrosoft(providerId) || isSocialProviderOidc(providerId)));
 
 						if (isCloud) {
 							const matchedOrg =
@@ -237,9 +227,10 @@ async function createAuthInstance(baseURL: string) {
 							}
 						} else {
 							await orgQueries.initializeDefaultOrganizationForFirstUser(user.id);
-							if (isSocial) {
-								await orgQueries.addUserToDefaultProjectIfExists(user.id);
-							}
+							// Link every new user (including credential / SSO-passthrough, not
+							// just social logins) to the default project. Idempotent; no-op when
+							// no default project exists.
+							await orgQueries.addUserToDefaultProjectIfExists(user.id);
 						}
 						await refreshAuthAfterInitialSelfHostedSignup();
 					},

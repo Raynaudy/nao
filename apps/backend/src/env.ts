@@ -60,6 +60,23 @@ const envSchema = z.object({
 
 	DEFAULT_USER_ROLE: z.enum(['admin', 'user', 'viewer']).default('user'),
 
+	// When true, auto-establish a session from a trusted reverse-proxy identity
+	// header (e.g. Databricks Apps' X-Forwarded-Email) so users don't see a
+	// separate login. Only enable behind a proxy that authenticates every request.
+	NAO_SSO_PASSTHROUGH: z
+		.enum(['true', 'false'])
+		.optional()
+		.default('false')
+		.transform((val) => val === 'true'),
+
+	// Python interpreter used to run `nao sync` from the backend (data-sync
+	// trigger + scheduled job). Defaults to `python` on PATH.
+	NAO_PYTHON: z.string().optional(),
+
+	// Cron expression to schedule periodic data-context sync (e.g. '0 */6 * * *').
+	// Unset = no scheduled sync (on-demand from the UI still works).
+	NAO_DATA_SYNC_CRON: z.string().optional(),
+
 	OIDC_PROVIDER_ID: z.string().optional(),
 	OIDC_PROVIDER_NAME: z.string().optional(),
 	OIDC_DISCOVERY_URL: z.string().optional(),
