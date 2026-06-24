@@ -35,10 +35,10 @@ Databricks App "nao"  (managed Node 22 + Python 3.11 runtime)
   `public` by default, so nao's first migration fails with `permission denied for
 schema public`. As a Lakebase admin, grant the app SP (its Postgres role name is
   the SP **client id**):
-    ```sql
+  `sql
     GRANT CREATE, USAGE ON SCHEMA public TO "<app-sp-client-id>";
-    ```
-    (Connect with `psql` using a token from `databricks database generate-database-credential`.)
+    `
+  (Connect with `psql` using a token from `databricks database generate-database-credential`.)
 - **Stable `BETTER_AUTH_SECRET`.** Must be a fixed secret, not ephemeral — Better
   Auth encrypts its JWKS with it and stores them in Lakebase. A changing secret
   causes `Failed to decrypt private key` on every request (login loop). Create one:
