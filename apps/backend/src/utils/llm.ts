@@ -55,6 +55,9 @@ export function getDefaultEnvProvider(): LlmProvider | undefined {
 	if (hasEnvApiKey('openai')) {
 		return 'openai';
 	}
+	if (hasEnvApiKey('databricks')) {
+		return 'databricks';
+	}
 	return undefined;
 }
 

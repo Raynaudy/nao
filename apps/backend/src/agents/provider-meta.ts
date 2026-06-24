@@ -339,6 +339,29 @@ export const PROVIDER_META: ProviderMetaMap = {
 		summaryModelId: '',
 		models: [],
 	},
+	databricks: {
+		auth: {
+			apiKey: 'required',
+			hint: 'Bearer token for the workspace (DATABRICKS_TOKEN). Base URL is the serving-endpoints root (DATABRICKS_LLM_BASE_URL); model IDs are served-endpoint names.',
+		},
+		envVar: 'DATABRICKS_TOKEN',
+		baseUrlEnvVar: 'DATABRICKS_LLM_BASE_URL',
+		// Model IDs are the names of chat serving endpoints in your Databricks
+		// workspace (Foundation Model APIs or your own served models). Availability
+		// varies by workspace and region — these are common defaults; add the ones
+		// your workspace serves as custom models in the LLM settings.
+		extractorModelId: 'databricks-meta-llama-3-1-8b-instruct',
+		summaryModelId: 'databricks-meta-llama-3-1-8b-instruct',
+		models: [
+			{ id: 'databricks-claude-sonnet-4-5', name: 'Claude Sonnet 4.5', default: true, contextWindow: 200_000 },
+			{ id: 'databricks-claude-opus-4-1', name: 'Claude Opus 4.1', contextWindow: 200_000 },
+			{ id: 'databricks-gpt-oss-120b', name: 'GPT-OSS 120B', contextWindow: 128_000 },
+			{ id: 'databricks-gpt-oss-20b', name: 'GPT-OSS 20B', contextWindow: 128_000 },
+			{ id: 'databricks-meta-llama-3-3-70b-instruct', name: 'Llama 3.3 70B Instruct', contextWindow: 128_000 },
+			{ id: 'databricks-meta-llama-3-1-8b-instruct', name: 'Llama 3.1 8B Instruct', contextWindow: 128_000 },
+			{ id: 'databricks-gemma-3-12b', name: 'Gemma 3 12B', contextWindow: 128_000 },
+		],
+	},
 };
 
 export function getDefaultModelId(provider: LlmProvider): string {
