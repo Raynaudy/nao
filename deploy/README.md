@@ -7,9 +7,9 @@ targets** that adapt nao to specific platforms without changing core app code.
 ## Convention
 
 - One subdirectory per target: `deploy/<target>/`.
-  - `deploy/databricks/` — Databricks Apps + Lakebase (see its README).
-  - Future: `deploy/k8s/`, `deploy/aws-ecs/`, … follow the same shape.
-- **Config over code.** A target only changes *how* nao's standard env vars get
+    - `deploy/databricks/` — Databricks Apps + Lakebase (see its README).
+    - Future: `deploy/k8s/`, `deploy/aws-ecs/`, … follow the same shape.
+- **Config over code.** A target only changes _how_ nao's standard env vars get
   populated (`DB_URI`, `SERVER_PORT`/`--port`, `NAO_CONTEXT_SOURCE`, provider
   keys/base URLs). There are no `if (platform)` branches in the app.
 - **Composable start.** Each target supplies a small entry script that resolves

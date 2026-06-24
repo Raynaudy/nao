@@ -1,53 +1,52 @@
 name: Deploy to Databricks Apps
 
 # Builds the frontend (Apps has no separate build hook) and deploys the app via
-# Databricks Asset Bundles. Trigger manually or on pushes to the deploy branch.
+# Databricks Asset Bundles. Manual trigger only — requires DATABRICKS_HOST/TOKEN
+# repo secrets and WAREHOUSE_ID/LAKEBASE_NAME vars.
 on:
-  workflow_dispatch:
-    inputs:
-      target:
-        description: "Bundle target"
-        required: true
-        default: "logfood"
-        type: choice
-        options: [dev, logfood]
-  push:
-    branches: [databricks-apps]
+    workflow_dispatch:
+        inputs:
+            target:
+                description: 'Bundle target'
+                required: true
+                default: 'logfood'
+                type: choice
+                options: [dev, logfood]
 
 env:
-  # Configure these as repository secrets/variables:
-  #   DATABRICKS_HOST   — workspace URL
-  #   DATABRICKS_TOKEN  — deploy credential (PAT or SP OAuth)
-  #   WAREHOUSE_ID, LAKEBASE_NAME — bundle vars
-  DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+    # Configure these as repository secrets/variables:
+    #   DATABRICKS_HOST   — workspace URL
+    #   DATABRICKS_TOKEN  — deploy credential (PAT or SP OAuth)
+    #   WAREHOUSE_ID, LAKEBASE_NAME — bundle vars
+    DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+    DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    deploy:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: '22'
 
-      # Install JS deps (incl. the vendored `bun`) and prebuild the frontend.
-      # The prebuilt apps/frontend/dist is synced with the source so the Apps
-      # runtime only installs deps and runs start.sh.
-      - name: Install deps
-        run: npm ci || npm install
-      - name: Build frontend
-        run: npx vite build
-        working-directory: apps/frontend
+            # Install JS deps (incl. the vendored `bun`) and prebuild the frontend.
+            # The prebuilt apps/frontend/dist is synced with the source so the Apps
+            # runtime only installs deps and runs start.sh.
+            - name: Install deps
+              run: npm ci || npm install
+            - name: Build frontend
+              run: npx vite build
+              working-directory: apps/frontend
 
-      - uses: databricks/setup-cli@main
+            - uses: databricks/setup-cli@main
 
-      - name: Validate bundle
-        run: databricks bundle validate -t ${{ github.event.inputs.target || 'logfood' }}
+            - name: Validate bundle
+              run: databricks bundle validate -t ${{ github.event.inputs.target || 'logfood' }}
 
-      - name: Deploy bundle
-        run: |
-          databricks bundle deploy -t ${{ github.event.inputs.target || 'logfood' }} \
-            --var="warehouse_id=${{ vars.WAREHOUSE_ID }}" \
-            --var="lakebase_name=${{ vars.LAKEBASE_NAME }}"
+            - name: Deploy bundle
+              run: |
+                  databricks bundle deploy -t ${{ github.event.inputs.target || 'logfood' }} \
+                    --var="warehouse_id=${{ vars.WAREHOUSE_ID }}" \
+                    --var="lakebase_name=${{ vars.LAKEBASE_NAME }}"

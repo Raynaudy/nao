@@ -328,7 +328,11 @@ export const startServer = async (opts: { port: number; host: string }) => {
 	// local project is configured. On-demand sync is available from the UI.
 	if (env.NAO_DEFAULT_PROJECT_PATH && env.NAO_DATA_SYNC_CRON) {
 		registerJob(DATA_SYNC_JOB_NAME, dataSyncHandler);
-		await ensureRecurring({ name: DATA_SYNC_JOB_NAME, cron: env.NAO_DATA_SYNC_CRON, uniqueKey: DATA_SYNC_JOB_NAME });
+		await ensureRecurring({
+			name: DATA_SYNC_JOB_NAME,
+			cron: env.NAO_DATA_SYNC_CRON,
+			uniqueKey: DATA_SYNC_JOB_NAME,
+		});
 	}
 
 	registerJob(MCP_QUERY_DATA_CLEANUP_JOB_NAME, mcpQueryDataCleanupHandler);
